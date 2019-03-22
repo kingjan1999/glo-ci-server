@@ -1,0 +1,32 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert
+    kompose.version: 1.18.0 (06a2e56)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: boilerplate-api
+  name: boilerplate-api
+spec:
+  replicas: 1
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        io.kompose.service: boilerplate-api
+    spec:
+      containers:
+      - env:
+        - name: MONGO_URI
+          value: mongodb://mongodb:27017/express-rest-es2017-boilerplate
+        - name: NODE_ENV
+          value: production
+        image: kingjan1999/glo-ci-server
+        name: boilerplate-api
+        ports:
+        - containerPort: 3000
+        resources: {}
+      restartPolicy: Always
+status: {}
