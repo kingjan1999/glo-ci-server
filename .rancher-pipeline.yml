@@ -1,0 +1,14 @@
+stages:
+- name: build image
+  steps:
+  - publishImageConfig:
+      dockerfilePath: ./Dockerfile
+      buildContext: .
+      tag: kingjan1999/glo-ci-server
+- name: deploy
+  steps:
+  - applyYamlConfig:
+      path: ./boilerplate-api-deployment.yaml
+  - applyYamlConfig:
+      path: ./boilerplate-api-service.yaml
+timeout: 60
