@@ -1,4 +1,8 @@
 const Integration = require('../models/integration.model')
+const {
+  handleGitkrakenHook,
+  handleGitlabHook
+} = require('../services/hookHandler')
 
 exports.create = async (req, res, next) => {
   try {
@@ -29,5 +33,21 @@ exports.delete = async (req, res, next) => {
     return res.status(204).end()
   } catch (error) {
     return next(error)
+  }
+}
+
+exports.hook = async (req, res, next) => {
+  const integration = await Integration.findOne({ _id: req.params.id })
+
+  if (req.headers['x-gk-signature']) {
+    // gitkraken
+    return handleGitkrakenHook(req, res, next, integration)
+  } else if (req.headers['Signature']) {
+    // travis
+  } else if (req.headers['X-Gitlab-Token']) {
+    // gitlab
+    return handleGitlabHook(req, res, next, integration)
+  } else {
+    return res.status(400).send('unknown webhook')
   }
 }

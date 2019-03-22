@@ -15,7 +15,6 @@ exports.makeGloRequest = async (req, res, next) => {
   const authToken = user.accessToken
   const url =
     apiUrl + req.originalUrl.substr(req.originalUrl.indexOf('proxy') + 5)
-  console.log('new url: ' + url)
   const response = await axios({
     method: req.method,
     url,

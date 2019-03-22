@@ -19,5 +19,6 @@ module.exports = {
   },
   logs: process.env.NODE_ENV === 'production' ? 'combined' : 'dev',
   gloClientId: process.env.GLO_CLIENT_ID || '',
-  gloClientSecret: process.env.GLO_CLIENT_SECRET || ''
+  gloClientSecret: process.env.GLO_CLIENT_SECRET || '',
+  ciProviders: ['travis', 'gitlab']
 }

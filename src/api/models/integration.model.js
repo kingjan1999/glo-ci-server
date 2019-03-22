@@ -1,7 +1,8 @@
 const mongoose = require('mongoose')
 const GloSDK = require('@axosoft/glo-sdk')
+const uuidv4 = require('uuid/v4')
 
-const ciProviders = ['travis', 'gitlab']
+const { ciProviders } = require('../../config/vars')
 
 const requiredString = { type: String, required: true }
 
@@ -11,6 +12,10 @@ const integrationSchema = new mongoose.Schema(
     columnTrigger: requiredString,
     columnSuccess: requiredString,
     columnFailed: requiredString,
+    secret: {
+      type: String,
+      default: uuidv4
+    },
     ciProvider: {
       type: String,
       required: true,
@@ -20,7 +25,8 @@ const integrationSchema = new mongoose.Schema(
       type: {
         gitRef: requiredString,
         gitlabToken: requiredString,
-        projectId: requiredString
+        projectId: requiredString,
+        gitEndpoint: requiredString
       },
       required: false
     },
@@ -57,7 +63,7 @@ integrationSchema.method({
       fields: ['name', 'columns']
     })
 
-    const obj = this.toJSON()
+    const obj = this.toJSON({ virtuals: true })
     obj.board = board
     obj.columnTrigger = board.columns.find(x => x.id === obj.columnTrigger)
     obj.columnSuccess = board.columns.find(x => x.id === obj.columnSuccess)
