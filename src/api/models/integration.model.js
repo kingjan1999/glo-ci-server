@@ -51,7 +51,7 @@ const integrationSchema = new mongoose.Schema(
 )
 
 integrationSchema.virtual('webhook_url').get(function () {
-  return backendUrl + '/integration/' + this._id + '/hook'
+  return backendUrl + '/v1/integration/' + this._id + '/hook'
 })
 
 integrationSchema.method({

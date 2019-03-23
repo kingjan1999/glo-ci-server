@@ -62,7 +62,7 @@ const triggerGitlabBuild = async gitlabSettings => {
 }
 
 exports.handleGitkrakenHook = async (req, res, next, integration) => {
-  const signature = createSignature(req.buf, integration.secret)
+  const signature = createSignature(JSON.stringify(req.body), integration.secret)
   if (signature !== req.headers['x-gk-signature']) {
     return res.status(403).send('invalid signature')
   }
@@ -86,9 +86,9 @@ exports.handleGitkrakenHook = async (req, res, next, integration) => {
 
   let buildId = -1
   if (integration.ciProvider === 'gitlab') {
-    buildId = triggerGitlabBuild(integration.gitlabSettings)
+    buildId = await triggerGitlabBuild(integration.gitlabSettings)
   } else if (integration.ciProvider === 'travis') {
-    buildId = triggerTravisBuild(integration.travisSettings)
+    buildId = await triggerTravisBuild(integration.travisSettings)
   } else {
     return res.status(204)
   }
