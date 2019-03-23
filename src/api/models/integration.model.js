@@ -54,6 +54,15 @@ integrationSchema.virtual('webhook_url').get(function () {
   return backendUrl + '/v1/integration/' + this._id + '/hook'
 })
 
+integrationSchema.pre('save', function (next) {
+  if (this.gitlabSettings && this.gitlabSettings.gitEndpoint) {
+    if (!this.gitlabSettings.gitEndpoint.endsWith('/')) {
+      this.gitlabSettings += '/'
+    }
+  }
+  next()
+})
+
 integrationSchema.method({
   async transformGlo () {
     const populated = await this.populate('userId').execPopulate()

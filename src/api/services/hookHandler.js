@@ -44,7 +44,7 @@ const triggerTravisBuild = async travisSettings => {
 const triggerGitlabBuild = async gitlabSettings => {
   try {
     const response = await axios.post(
-      `https://gitlab.com/api/v4/projects/${
+      `${gitlabSettings.gitEndpoint}api/v4/projects/${
         gitlabSettings.projectId
       }/trigger/pipeline`,
       null,
