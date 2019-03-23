@@ -2,7 +2,12 @@ const JwtStrategy = require('passport-jwt').Strategy
 const BearerStrategy = require('passport-http-bearer')
 const OAuth2Straegy = require('passport-oauth2').Strategy
 const { ExtractJwt } = require('passport-jwt')
-const { jwtSecret, gloClientSecret, gloClientId } = require('./vars')
+const {
+  jwtSecret,
+  gloClientSecret,
+  gloClientId,
+  backendUrl
+} = require('./vars')
 const authProviders = require('../api/services/authProviders')
 const User = require('../api/models/user.model')
 
@@ -39,7 +44,7 @@ exports.gitkrakenOauth = new OAuth2Straegy(
     tokenURL: 'https://api.gitkraken.com/oauth/access_token',
     clientID: gloClientId,
     clientSecret: gloClientSecret,
-    callbackURL: 'http://localhost:3000/v1/auth/login/gitkraken/callback'
+    callbackURL: backendUrl + '/v1/auth/login/gitkraken/callback'
   },
   async (accessToken, refreshToken, profile, cb) => {
     const userData = await authProviders.gitkraken(accessToken)

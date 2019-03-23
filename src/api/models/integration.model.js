@@ -2,7 +2,7 @@ const mongoose = require('mongoose')
 const GloSDK = require('@axosoft/glo-sdk')
 const uuidv4 = require('uuid/v4')
 
-const { ciProviders } = require('../../config/vars')
+const { ciProviders, backendUrl } = require('../../config/vars')
 
 const requiredString = { type: String, required: true }
 
@@ -51,7 +51,7 @@ const integrationSchema = new mongoose.Schema(
 )
 
 integrationSchema.virtual('webhook_url').get(function () {
-  return 'http://localhost:3000/hook/trigger/' + this._id
+  return backendUrl + '/hook/trigger/' + this._id
 })
 
 integrationSchema.method({
