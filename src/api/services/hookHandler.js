@@ -11,14 +11,17 @@ const createSignature = (buf, secret) => {
   return 'sha1=' + hmac.digest('hex')
 }
 
+const waitFor = timeout => new Promise(resolve => setTimeout(resolve, timeout))
+
 const triggerTravisBuild = async travisSettings => {
   try {
-    const url =
+    logger.info('triggering travis!')
+    const repoUrl =
       travisSettings.travisEndpoint +
       '/repo/' +
-      encodeURIComponent(travisSettings.travisRepo) +
-      '/requests'
-    const response = await axios.post(
+      encodeURIComponent(travisSettings.travisRepo)
+    const url = repoUrl + '/requests'
+    const reqResponse = await axios.post(
       url,
       {
         request: {
@@ -34,15 +37,34 @@ const triggerTravisBuild = async travisSettings => {
         }
       }
     )
+    const requestId = reqResponse.data.request.id
+    if (!requestId) return [-1, []]
 
-    return response.request.id
+    await waitFor(2000) // TODO !!!!! queue
+    const reqResponse2 = await axios.get(repoUrl + '/request/' + requestId, {
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        'Travis-API-Version': 3,
+        Authorization: 'token ' + travisSettings.travisToken
+      }
+    })
+    const buildIds = reqResponse2.data.builds.map(x => x.id)
+    return [requestId, buildIds]
   } catch (err) {
     logger.error(err)
+    return [-1, []]
   }
 }
 
 const triggerGitlabBuild = async gitlabSettings => {
   try {
+    logger.info(
+      'triggering gitlab on ' +
+        gitlabSettings.gitEndpoint +
+        ' for project ' +
+        gitlabSettings.projectId
+    )
     const response = await axios.post(
       `${gitlabSettings.gitEndpoint}api/v4/projects/${
         gitlabSettings.projectId
@@ -58,53 +80,76 @@ const triggerGitlabBuild = async gitlabSettings => {
     return response.data.id
   } catch (err) {
     logger.error(err)
+    return -1
   }
 }
 
 exports.handleGitkrakenHook = async (req, res, next, integration) => {
-  const signature = createSignature(JSON.stringify(req.body), integration.secret)
+  const signature = createSignature(
+    JSON.stringify(req.body),
+    integration.secret
+  )
   if (signature !== req.headers['x-gk-signature']) {
+    logger.warn('could not verify signature')
     return res.status(403).send('invalid signature')
   }
 
   if (req.headers['x-gk-event'] !== 'cards') {
     // we only handle card events
-    return res.status(204)
+    logger.debug('ignoring gk non card event')
+    return res.status(204).end()
   }
 
   const validActions = ['added', 'moved_column', 'moved_to_board']
   if (!validActions.includes(req.body.action)) {
-    return res.status(204)
+    logger.debug('ignoring gk action ' + req.body.action)
+    return res.status(204).end()
   }
 
-  if (
-    !req.body.card ||
-    !req.body.card.column_id === integration.triggerColumn
-  ) {
-    return res.status(204)
+  if (!req.body.card) {
+    logger.debug('gk: card is not given in body!')
+    return res.status(400).end()
+  }
+  if (req.body.card.column_id !== integration.columnTrigger) {
+    logger.debug(
+      'ignoring gk non trigger column: ' +
+        req.body.card.column_id +
+        ' vs ' +
+        integration.columnTrigger
+    )
+    return res.status(204).end()
   }
 
   let buildId = -1
+  let buildIds = []
   if (integration.ciProvider === 'gitlab') {
     buildId = await triggerGitlabBuild(integration.gitlabSettings)
   } else if (integration.ciProvider === 'travis') {
-    buildId = await triggerTravisBuild(integration.travisSettings)
+    const travisIds = await triggerTravisBuild(integration.travisSettings)
+    buildId = travisIds[0]
+    buildIds = travisIds[1]
   } else {
-    return res.status(204)
+    logger.warn('ignoring, beacuse ci provider is unknonw')
+    return res.status(204).end()
+  }
+  if (buildId === -1) {
+    logger.warn('could not trigger build!')
+    return res.status(204).end()
   }
   const build = await new Build({
     provider: integration.ciProvider,
     integrationId: integration._id,
     cardId: req.body.card.id,
+    travisBuildIds: buildIds,
     buildId
   }).save()
-  return res.json({ message: 'build triggered', build })
+  return res.json({ message: 'build triggered', build }).end()
 }
 
 const moveCardByStatus = async (build, integration, status) => {
-  await integration.populate('userId').populateExec()
+  // await integration.populate('userId').exec()
 
-  let card = await GloSDK(integration.userId.accessToken).cards.get(
+  let card = await GloSDK(integration.userId.accessToken).boards.cards.get(
     integration.board,
     build.cardId
   )
@@ -114,7 +159,7 @@ const moveCardByStatus = async (build, integration, status) => {
     card.column_id = integration.columnFailed
   }
 
-  card = await GloSDK(integration.userId.accessToken).cards.edit(
+  card = await GloSDK(integration.userId.accessToken).boards.cards.edit(
     integration.board,
     card.id,
     card
@@ -124,12 +169,12 @@ const moveCardByStatus = async (build, integration, status) => {
 }
 
 exports.handleGitlabHook = async (req, res, next, integration) => {
-  if (req.header['X-Gitlab-Token'] !== integration.secret) {
+  if (req.headers['x-gitlab-token'] !== integration.secret) {
     return res.status(403).end('invalid token')
   }
 
-  if (req.header['X-Gitlab-Event'] !== 'Pipeline Hook') {
-    return res.status(204)
+  if (req.headers['x-gitlab-event'] !== 'Pipeline Hook') {
+    return res.status(204).end()
   }
   res.json({ message: 'processed' }).end()
 
@@ -137,7 +182,11 @@ exports.handleGitlabHook = async (req, res, next, integration) => {
   const build = await Build.findOne({
     integrationId: integration._id,
     buildId: hookBuild.id
-  })
+  }).exec()
+  if (!build) {
+    logger.info("gitlab: couldn't find triggered build!")
+    return
+  }
 
   const status = hookBuild.status
   return moveCardByStatus(build, integration, status)
@@ -150,7 +199,8 @@ exports.handleTravisHook = async (req, res, next, integration) => {
   const configResponse = await axios.get(
     integration.travisSettings.travisEndpoint + '/config'
   )
-  const travisPublicKey = configResponse.data.notifications.webhook.public_key
+  const travisPublicKey =
+    configResponse.data.config.notifications.webhook.public_key
   let verifier = crypto.createVerify('sha1')
   verifier.update(payload)
   if (!verifier.verify(travisPublicKey, travisSignature)) {
@@ -158,16 +208,21 @@ exports.handleTravisHook = async (req, res, next, integration) => {
   }
 
   res.json({ message: 'processed' }).end()
-  if (payload.status_message === 'Pending') {
+  const parsedPayload = JSON.parse(payload)
+  if (parsedPayload.status_message === 'Pending') {
     return
   }
 
   const build = await Build.findOne({
     integrationId: integration._id,
-    buildId: payload.id
-  })
+    travisBuildIds: parsedPayload.id
+  }).exec()
 
-  if (payload.status === 0) {
+  if (!build) {
+    logger.info("travis: couldn't find triggered build ")
+  }
+
+  if (parsedPayload.status === 0) {
     return moveCardByStatus(build, integration, 'success')
   } else {
     return moveCardByStatus(build, integration, 'failed')

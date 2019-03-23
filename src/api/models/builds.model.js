@@ -20,6 +20,10 @@ const buildSchema = new mongoose.Schema({
   buildId: {
     type: String,
     required: true
+  },
+  travisBuildIds: {
+    type: [Number],
+    required: false
   }
 })
 
