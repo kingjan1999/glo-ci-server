@@ -1,4 +1,10 @@
 stages:
+- name: build image
+  steps:
+  - publishImageConfig:
+      dockerfilePath: ./Dockerfile
+      buildContext: .
+      tag: kingjan1999/glo-ci-server
 - name: deploy
   steps:
   - applyYamlConfig:
