@@ -23,6 +23,8 @@ spec:
           value: mongodb://mongodb:27017/express-rest-es2017-boilerplate
         - name: NODE_ENV
           value: production
+        - name: BACKEND_URL
+          value: https://r.kluster.app
         image: kingjan1999/glo-ci-server
         name: boilerplate-api
         ports:
