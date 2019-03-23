@@ -1,6 +1,8 @@
 const express = require('express')
 const validate = require('express-validation')
 const passport = require('passport')
+const base64url = require('base64url')
+
 const controller = require('../../controllers/auth.controller')
 const oAuthLogin = require('../../middlewares/auth').oAuth
 const {
@@ -143,11 +145,12 @@ router
   .route('/gitkraken')
   .post(validate(oAuth), oAuthLogin('gitkraken'), controller.oAuth)
 
-router
-  .route('/login/gitkraken')
-  .get(
-    passport.authenticate('gitkraken-oauth', { scope: 'board:write user:read' })
-  )
+router.route('/login/gitkraken').get((req, res, next) => {
+  passport.authenticate('gitkraken-oauth', {
+    scope: 'board:write user:read',
+    state: base64url(JSON.stringify({ callback: req.query.callback }))
+  })(req, res, next)
+})
 
 router.route('/login/gitkraken/callback').get(
   passport.authenticate('gitkraken-oauth', {

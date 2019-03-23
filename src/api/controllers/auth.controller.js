@@ -1,4 +1,5 @@
 const httpStatus = require('http-status')
+const base64url = require('base64url')
 const User = require('../models/user.model')
 const RefreshToken = require('../models/refreshToken.model')
 const moment = require('moment-timezone')
@@ -58,11 +59,16 @@ exports.login = async (req, res, next) => {
  */
 exports.oAuth = async (req, res, next) => {
   try {
+    if (!req.query.state) {
+      throw new Error('state not found')
+    }
+
+    const callback = JSON.parse(base64url.decode(req.query.state)).callback
     const { user } = req
     const accessToken = user.token()
     const token = generateTokenResponse(user, accessToken)
     // const userTransformed = user.transform()
-    return res.redirect('http://localhost:8080/login-callback?token=' + token.accessToken)
+    return res.redirect(callback + '?token=' + token.accessToken)
     // return res.json({ token, user: userTransformed })
   } catch (error) {
     return next(error)
