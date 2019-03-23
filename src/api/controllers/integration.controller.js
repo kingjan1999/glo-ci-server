@@ -5,6 +5,17 @@ const {
   handleTravisHook
 } = require('../services/hookHandler')
 
+exports.preventUpdate = (req, res, next) => {
+  delete req.body.webhook_url
+  delete req.body._id
+  delete req.body.secret
+  delete req.body.created_at
+  delete req.body.updated_at
+  delete req.body.id
+  delete req.body._v
+  next()
+}
+
 exports.create = async (req, res, next) => {
   try {
     req.body.userId = req.user._id
@@ -28,9 +39,36 @@ exports.list = async (req, res, next) => {
   }
 }
 
+exports.get = async (req, res, next) => {
+  try {
+    const integration = await Integration.findOne({
+      _id: req.params.id,
+      userId: req.user._id
+    }).exec()
+    return res.json(integration.toJSON({ virtuals: true }))
+  } catch (error) {
+    return next(error)
+  }
+}
+
+exports.update = async (req, res, next) => {
+  try {
+    const integration = await Integration.findOneAndUpdate(
+      {
+        _id: req.params.id,
+        userId: req.user._id
+      },
+      req.body
+    ).exec()
+    return res.json(integration.toJSON({ virtuals: true }))
+  } catch (error) {
+    return next(error)
+  }
+}
+
 exports.delete = async (req, res, next) => {
   try {
-    await Integration.deleteOne({ _id: req.params.id })
+    await Integration.deleteOne({ _id: req.params.id, userId: req.user._id })
     return res.status(204).end()
   } catch (error) {
     return next(error)
