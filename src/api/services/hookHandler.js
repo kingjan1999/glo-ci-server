@@ -220,6 +220,7 @@ exports.handleTravisHook = async (req, res, next, integration) => {
 
   if (!build) {
     logger.info("travis: couldn't find triggered build ")
+    return
   }
 
   if (parsedPayload.status === 0) {
