@@ -1,10 +1,10 @@
 {
-  "name": "express-rest-es2017-boilerplate",
-  "version": "1.2.2",
-  "description": "Express boilerplate for building RESTful APIs",
-  "author": "Daniel Sousa <sousa.dfs@gmail.com>",
+  "name": "glo-ci-server",
+  "version": "1.0.0",
+  "description": "Backend for Glo CI",
+  "author": "Jan Beckmann <king-jan1999@hotmail.de>",
   "main": "src/index.js",
-  "private": false,
+  "private": true,
   "license": "MIT",
   "engines": {
     "node": ">=8",
@@ -37,31 +37,8 @@
   },
   "repository": {
     "type": "git",
-    "url": "git@github.com:danielfsousa/express-rest-es2017-boilerplate.git"
+    "url": "git@github.com:kingjan1999/glo-ci-server.git"
   },
-  "keywords": [
-    "express",
-    "node",
-    "node.js",
-    "mongodb",
-    "mongoose",
-    "passport",
-    "es6",
-    "es7",
-    "es8",
-    "es2017",
-    "mocha",
-    "istanbul",
-    "nyc",
-    "eslint",
-    "Travis CI",
-    "coveralls",
-    "REST",
-    "API",
-    "boilerplate",
-    "generator",
-    "starter project"
-  ],
   "dependencies": {
     "@axosoft/glo-sdk": "^1.0.7",
     "axios": "^0.18.0",
