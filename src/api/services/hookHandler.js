@@ -129,7 +129,7 @@ exports.handleGitkrakenHook = async (req, res, next, integration) => {
     buildId = travisIds[0]
     buildIds = travisIds[1]
   } else {
-    logger.warn('ignoring, beacuse ci provider is unknonw')
+    logger.warn('ignoring, because ci provider is unknown')
     return res.status(204).end()
   }
   if (buildId === -1) {
@@ -146,7 +146,7 @@ exports.handleGitkrakenHook = async (req, res, next, integration) => {
   return res.json({ message: 'build triggered', build }).end()
 }
 
-const moveCardByStatus = async (build, integration, status) => {
+const moveCardByStatus = async (build, integration, status, originalStatus) => {
   // await integration.populate('userId').exec()
 
   let card = await GloSDK(integration.userId.accessToken).boards.cards.get(
@@ -165,6 +165,18 @@ const moveCardByStatus = async (build, integration, status) => {
     card
   )
 
+  await GloSDK(integration.userId.accessToken).boards.cards.comments.create(
+    integration.board,
+    card.id,
+    {
+      text: `[Glo CI](https://glo-ci.xyz) CI build ${
+        build.buildId
+      } ended with status ${originalStatus}`
+    }
+  )
+
+  await build.remove()
+
   return card
 }
 
@@ -179,6 +191,10 @@ exports.handleGitlabHook = async (req, res, next, integration) => {
   res.json({ message: 'processed' }).end()
 
   const hookBuild = req.body.object_attributes
+  const status = hookBuild.status
+  const ignoreStatus = ['pending', 'running']
+  if (ignoreStatus.indexOf(status) > -1) return
+
   const build = await Build.findOne({
     integrationId: integration._id,
     buildId: hookBuild.id
@@ -188,8 +204,7 @@ exports.handleGitlabHook = async (req, res, next, integration) => {
     return
   }
 
-  const status = hookBuild.status
-  return moveCardByStatus(build, integration, status)
+  return moveCardByStatus(build, integration, status, status)
 }
 
 exports.handleTravisHook = async (req, res, next, integration) => {
@@ -209,7 +224,8 @@ exports.handleTravisHook = async (req, res, next, integration) => {
 
   res.json({ message: 'processed' }).end()
   const parsedPayload = JSON.parse(payload)
-  if (parsedPayload.status_message === 'Pending') {
+  const ignoreStatus = ['Pending']
+  if (ignoreStatus.indexOf(parsedPayload.status_message) > -1) {
     return
   }
 
@@ -224,8 +240,18 @@ exports.handleTravisHook = async (req, res, next, integration) => {
   }
 
   if (parsedPayload.status === 0) {
-    return moveCardByStatus(build, integration, 'success')
+    return moveCardByStatus(
+      build,
+      integration,
+      'success',
+      parsedPayload.status_message
+    )
   } else {
-    return moveCardByStatus(build, integration, 'failed')
+    return moveCardByStatus(
+      build,
+      integration,
+      'failed',
+      parsedPayload.status_message
+    )
   }
 }

@@ -67,7 +67,8 @@
     "passport-oauth2": "^1.5.0",
     "pm2": "^3.0.0",
     "uuid": "^3.1.0",
-    "winston": "^3.1.0"
+    "winston": "^3.1.0",
+    "winston-raven-sentry": "^2.0.0"
   },
   "devDependencies": {
     "apidoc": "^0.17.5",
