@@ -20,7 +20,7 @@ const router = express.Router()
  * @apiGroup Auth
  * @apiPermission public
  *
- * @apiParam  {String}  email         User's email
+ * @apiParam  {String}  userId         User's id
  * @apiParam  {String}  refreshToken  Refresh token aquired when user logged in
  *
  * @apiSuccess {String}  tokenType     Access Token's type

@@ -11,8 +11,7 @@ module.exports = {
   // POST /v1/auth/refresh
   refresh: {
     body: {
-      email: Joi.string()
-        .email()
+      userId: Joi.string()
         .required(),
       refreshToken: Joi.string().required()
     }

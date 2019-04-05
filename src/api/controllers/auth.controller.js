@@ -49,13 +49,12 @@ exports.oAuth = async (req, res, next) => {
  */
 exports.refresh = async (req, res, next) => {
   try {
-    const { email, refreshToken } = req.body
+    const { userId, refreshToken } = req.body
     const refreshObject = await RefreshToken.findOneAndRemove({
-      userEmail: email,
       token: refreshToken
     })
     const { user, accessToken } = await User.findAndGenerateToken({
-      email,
+      userId,
       refreshObject
     })
     const response = generateTokenResponse(user, accessToken)
