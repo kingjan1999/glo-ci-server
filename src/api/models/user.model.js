@@ -19,14 +19,6 @@ const roles = ['user', 'admin']
  */
 const userSchema = new mongoose.Schema(
   {
-    email: {
-      type: String,
-      match: /^\S+@\S+\.\S+$/,
-      required: true,
-      unique: true,
-      trim: true,
-      lowercase: true
-    },
     password: {
       type: String,
       required: true,
@@ -41,7 +33,8 @@ const userSchema = new mongoose.Schema(
     },
     services: {
       facebook: String,
-      google: String
+      google: String,
+      gitkraken: String
     },
     role: {
       type: String,
@@ -88,7 +81,7 @@ userSchema.pre('save', async function save (next) {
 userSchema.method({
   transform () {
     const transformed = {}
-    const fields = ['id', 'name', 'email', 'picture', 'role', 'createdAt']
+    const fields = ['id', 'name', 'picture', 'role', 'createdAt']
 
     fields.forEach(field => {
       transformed[field] = this[field]
@@ -152,14 +145,14 @@ userSchema.statics = {
    * @returns {Promise<User, APIError>}
    */
   async findAndGenerateToken (options) {
-    const { email, password, refreshObject } = options
-    if (!email) {
+    const { userId, password, refreshObject } = options
+    if (!userId) {
       throw new APIError({
-        message: 'An email is required to generate a token'
+        message: 'An userId is required to generate a token'
       })
     }
 
-    const user = await this.findOne({ email }).exec()
+    const user = await this.findById(userId).exec()
     const err = {
       status: httpStatus.UNAUTHORIZED,
       isPublic: true
@@ -169,7 +162,7 @@ userSchema.statics = {
         return { user, accessToken: user.token() }
       }
       err.message = 'Incorrect email or password'
-    } else if (refreshObject && refreshObject.userEmail === email) {
+    } else if (refreshObject && refreshObject.userId === userId) {
       if (moment(refreshObject.expires).isBefore()) {
         err.message = 'Invalid refresh token.'
       } else {
@@ -224,9 +217,9 @@ userSchema.statics = {
     return error
   },
 
-  async oAuthLogin ({ service, id, email, name, picture, accessToken }) {
+  async oAuthLogin ({ service, id, name, picture, accessToken }) {
     const user = await this.findOne({
-      $or: [{ [`services.${service}`]: id }, { email }]
+      $or: [{ [`services.${service}`]: id }]
     })
     if (user) {
       user.services[service] = id
@@ -237,7 +230,6 @@ userSchema.statics = {
     const password = uuidv4()
     return this.create({
       services: { [service]: id },
-      email,
       password,
       name,
       picture,

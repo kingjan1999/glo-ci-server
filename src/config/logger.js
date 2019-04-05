@@ -1,5 +1,5 @@
 const winston = require('winston')
-
+const Sentry = require('winston-raven-sentry')
 const logger = winston.createLogger({
   level: 'info',
   format: winston.format.json(),
@@ -24,6 +24,11 @@ if (process.env.NODE_ENV !== 'production') {
       level: 'debug'
     })
   )
+} else {
+  logger.add(Sentry, {
+    dsn: 'https://b57b8dbaac2f4116aacc69d0d1b27786@sentry.io/1432442',
+    level: 'warn'
+  })
 }
 
 logger.stream = {

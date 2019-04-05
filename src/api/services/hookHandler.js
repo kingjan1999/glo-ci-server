@@ -4,6 +4,7 @@ const axios = require('axios')
 
 const Build = require('../models/builds.model')
 const logger = require('../../config/logger')
+const { createTravisBuild, removeBuildIfStillPresent } = require('../../queue/builds')
 
 const createSignature = (buf, secret) => {
   const hmac = crypto.createHmac('sha1', secret)
@@ -11,7 +12,7 @@ const createSignature = (buf, secret) => {
   return 'sha1=' + hmac.digest('hex')
 }
 
-const waitFor = timeout => new Promise(resolve => setTimeout(resolve, timeout))
+// const waitFor = timeout => new Promise(resolve => setTimeout(resolve, timeout))
 
 const triggerTravisBuild = async travisSettings => {
   try {
@@ -40,17 +41,17 @@ const triggerTravisBuild = async travisSettings => {
     const requestId = reqResponse.data.request.id
     if (!requestId) return [-1, []]
 
-    await waitFor(2000) // TODO !!!!! queue
-    const reqResponse2 = await axios.get(repoUrl + '/request/' + requestId, {
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-        'Travis-API-Version': 3,
-        Authorization: 'token ' + travisSettings.travisToken
-      }
-    })
-    const buildIds = reqResponse2.data.builds.map(x => x.id)
-    return [requestId, buildIds]
+    // await waitFor(2000) // TODO !!!!! queue
+    // const reqResponse2 = await axios.get(repoUrl + '/request/' + requestId, {
+    //   headers: {
+    //     'Content-Type': 'application/json',
+    //     Accept: 'application/json',
+    //     'Travis-API-Version': 3,
+    //     Authorization: 'token ' + travisSettings.travisToken
+    //   }
+    // })
+    // const buildIds = reqResponse2.data.builds.map(x => x.id)
+    return requestId
   } catch (err) {
     logger.error(err)
     return [-1, []]
@@ -121,15 +122,12 @@ exports.handleGitkrakenHook = async (req, res, next, integration) => {
   }
 
   let buildId = -1
-  let buildIds = []
   if (integration.ciProvider === 'gitlab') {
     buildId = await triggerGitlabBuild(integration.gitlabSettings)
   } else if (integration.ciProvider === 'travis') {
-    const travisIds = await triggerTravisBuild(integration.travisSettings)
-    buildId = travisIds[0]
-    buildIds = travisIds[1]
+    buildId = await triggerTravisBuild(integration.travisSettings)
   } else {
-    logger.warn('ignoring, beacuse ci provider is unknonw')
+    logger.warn('ignoring, because ci provider is unknown')
     return res.status(204).end()
   }
   if (buildId === -1) {
@@ -140,13 +138,29 @@ exports.handleGitkrakenHook = async (req, res, next, integration) => {
     provider: integration.ciProvider,
     integrationId: integration._id,
     cardId: req.body.card.id,
-    travisBuildIds: buildIds,
+    travisBuildIds: [],
     buildId
   }).save()
+
+  // trigger queue jobs
+  if (integration.ciProvider === 'travis') {
+    await createTravisBuild({
+      repoUrl:
+        integration.travisSettings.travisEndpoint +
+        '/repo/' +
+        encodeURIComponent(integration.travisSettings.travisRepo),
+      requestId: buildId,
+      travisToken: integration.travisSettings.travisToken,
+      internalBuildId: build.id
+    })
+  }
+
+  await removeBuildIfStillPresent({ buildId: build.id })
+
   return res.json({ message: 'build triggered', build }).end()
 }
 
-const moveCardByStatus = async (build, integration, status) => {
+const moveCardByStatus = async (build, integration, status, originalStatus) => {
   // await integration.populate('userId').exec()
 
   let card = await GloSDK(integration.userId.accessToken).boards.cards.get(
@@ -165,6 +179,18 @@ const moveCardByStatus = async (build, integration, status) => {
     card
   )
 
+  await GloSDK(integration.userId.accessToken).boards.cards.comments.create(
+    integration.board,
+    card.id,
+    {
+      text: `[Glo CI](https://glo-ci.xyz) CI build ${
+        build.buildId
+      } ended with status ${originalStatus}`
+    }
+  )
+
+  await build.remove()
+
   return card
 }
 
@@ -179,6 +205,10 @@ exports.handleGitlabHook = async (req, res, next, integration) => {
   res.json({ message: 'processed' }).end()
 
   const hookBuild = req.body.object_attributes
+  const status = hookBuild.status
+  const ignoreStatus = ['pending', 'running']
+  if (ignoreStatus.indexOf(status) > -1) return
+
   const build = await Build.findOne({
     integrationId: integration._id,
     buildId: hookBuild.id
@@ -188,8 +218,7 @@ exports.handleGitlabHook = async (req, res, next, integration) => {
     return
   }
 
-  const status = hookBuild.status
-  return moveCardByStatus(build, integration, status)
+  return moveCardByStatus(build, integration, status, status)
 }
 
 exports.handleTravisHook = async (req, res, next, integration) => {
@@ -209,7 +238,8 @@ exports.handleTravisHook = async (req, res, next, integration) => {
 
   res.json({ message: 'processed' }).end()
   const parsedPayload = JSON.parse(payload)
-  if (parsedPayload.status_message === 'Pending') {
+  const ignoreStatus = ['Pending']
+  if (ignoreStatus.indexOf(parsedPayload.status_message) > -1) {
     return
   }
 
@@ -224,8 +254,18 @@ exports.handleTravisHook = async (req, res, next, integration) => {
   }
 
   if (parsedPayload.status === 0) {
-    return moveCardByStatus(build, integration, 'success')
+    return moveCardByStatus(
+      build,
+      integration,
+      'success',
+      parsedPayload.status_message
+    )
   } else {
-    return moveCardByStatus(build, integration, 'failed')
+    return moveCardByStatus(
+      build,
+      integration,
+      'failed',
+      parsedPayload.status_message
+    )
   }
 }

@@ -6,6 +6,8 @@ const methodOverride = require('method-override')
 const cors = require('cors')
 const helmet = require('helmet')
 const passport = require('passport')
+const kue = require('kue')
+const basicAuth = require('basic-auth-connect')
 const routes = require('../api/routes/v1')
 const { logs } = require('./vars')
 const strategies = require('./passport')
@@ -52,6 +54,11 @@ passport.deserializeUser(function (user, done) {
 
 // mount api v1 routes
 app.use('/v1', routes)
+app.use(
+  '/queue',
+  basicAuth(process.env.KUE_USER, process.env.KUE_PASSWORD),
+  kue.app
+)
 
 // if error is not an instanceOf APIError, convert it.
 app.use(error.converter)
