@@ -41,7 +41,8 @@ const userSchema = new mongoose.Schema(
     },
     services: {
       facebook: String,
-      google: String
+      google: String,
+      gitkraken: String
     },
     role: {
       type: String,
