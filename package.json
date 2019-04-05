@@ -70,7 +70,7 @@
     "pm2": "^3.0.0",
     "uuid": "^3.1.0",
     "winston": "^3.1.0",
-    "winston-raven-sentry": "^2.0.0"
+    "winston-sentry-log": "^1.0.11"
   },
   "devDependencies": {
     "apidoc": "^0.17.5",
